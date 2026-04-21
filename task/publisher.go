@@ -29,7 +29,7 @@ func PrepareSuite(client enclave.Client, logger *logging.Logger) {
 		return
 	}
 
-	f, err := os.Open("./benchmark.wasm")
+	f, err := os.Open("../artifact/benchmark.wasm")
 	if err != nil {
 		return
 	}

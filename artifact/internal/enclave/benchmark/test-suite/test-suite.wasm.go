@@ -2,17 +2,12 @@
 
 package testsuite
 
-import (
-	"go.bytecodealliance.org/cm"
-)
-
 // This file contains wasmimport and wasmexport declarations for "enclave:benchmark".
 
 //go:wasmexport enclave:benchmark/test-suite#startuptime
 //export enclave:benchmark/test-suite#startuptime
-func wasmexport_Startuptime(receiverserver0 *uint8, receiverserver1 uint32) (result *[2]string) {
-	receiverserver := cm.LiftString[string]((*uint8)(receiverserver0), (uint32)(receiverserver1))
-	result_ := Exports.Startuptime(receiverserver)
+func wasmexport_Startuptime() (result *[2]string) {
+	result_ := Exports.Startuptime()
 	result = &result_
 	return
 }

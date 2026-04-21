@@ -8,5 +8,5 @@ world benchmark {
 }
 
 interface test-suite {
-    startuptime: func(receiverserver: string) -> tuple<string, string>;
+    startuptime: func() -> tuple<string, string>;
 }

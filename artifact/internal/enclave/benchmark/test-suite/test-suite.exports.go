@@ -6,6 +6,6 @@ package testsuite
 var Exports struct {
 	// Startuptime represents the caller-defined, exported function "startuptime".
 	//
-	//	startuptime: func(receiverserver: string) -> tuple<string, string>
-	Startuptime func(receiverserver string) (result [2]string)
+	//	startuptime: func() -> tuple<string, string>
+	Startuptime func() (result [2]string)
 }

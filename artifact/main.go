@@ -5,22 +5,30 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 
 	testsuite "github.com/EnclaveRunner/examples-go/internal/enclave/benchmark/test-suite"
 	_ "github.com/ydnar/wasi-http-go/wasihttp" // enable wasi-http
 )
 
 func init() {
-	testsuite.Exports.Startuptime = func(receiverserver string) (result [2]string) {
-		fmt.Printf("Welcome to Enclave, %s\n", receiverserver)
+	testsuite.Exports.Startuptime = func() (result [2]string) {
+		measurementID := os.Getenv("MEASUREMENT_ID")
+		measurementServer := os.Getenv("MEASUREMENT_SERVER")
+		if measurementID == "" || measurementServer == "" {
+			return [2]string{"", "MEASUREMENT_ID or MEASUREMENT_SERVER is not set"}
+		}
 
-		fmt.Println("### Starting start-up benchmark: fetching " + receiverserver)
-		resp, err := http.Get(receiverserver)
+		receiverServer := fmt.Sprintf("%s/started/?request=%s", strings.TrimRight(measurementServer, "/"), measurementID)
+
+		resp, err := http.Get(receiverServer)
 		if err != nil {
-			return [2]string{"", fmt.Sprintf("Error fetching %s: %v\n", receiverserver, err)}
+			return [2]string{"", fmt.Sprintf("Error fetching %s: %v", receiverServer, err)}
 		}
 		defer resp.Body.Close()
-		fmt.Printf("Fetched %s with status code: %d\n", receiverserver, resp.StatusCode)
+
+		fmt.Printf("Fetched %s with status code: %d\n", receiverServer, resp.StatusCode)
 		return [2]string{"", ""}
 	}
 }
