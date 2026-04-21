@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	testsuite "github.com/EnclaveRunner/examples-go/internal/enclave/benchmark/test-suite"
-	_ "github.com/ydnar/wasi-http-go/wasihttp" // enable wasi-http
+	//_ "github.com/ydnar/wasi-http-go/wasihttp" // enable wasi-http
 )
 
 func perform_measurement() error {

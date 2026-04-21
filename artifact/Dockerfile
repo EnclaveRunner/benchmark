@@ -6,4 +6,4 @@ RUN CGO_ENABLED=0 go build -ldflags='-s -w' -o benchmark ./main.go
 
 FROM scratch AS final
 COPY --from=build /build/benchmark /benchmark
-CMD [ "/myapp" ]
+CMD [ "/benchmark" ]

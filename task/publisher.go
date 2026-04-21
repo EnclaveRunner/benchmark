@@ -3,10 +3,12 @@ package task
 import (
 	"benchmark/logging"
 	"context"
+	"errors"
 	"os"
 	"time"
 
 	"github.com/EnclaveRunner/sdk-go/enclave"
+	"github.com/google/uuid"
 )
 
 var (
@@ -23,15 +25,30 @@ var defaultTask = enclave.CreateTaskRequest{
 	Retries:  0,
 }
 
-func PrepareSuite(client enclave.Client, logger *logging.Logger) {
+var defaultTaskDocker = enclave.CreateTaskRequest{
+	Source:   benchmarkNamespace + ":" + benchmarkName + "/" + "interface" + "/" + "ghcr.io/enclaverunner/benchmark:latest" + "@" + benchmarkTag,
+	Callback: "",
+	Retries:  0,
+}
+
+func PrepareSuite(client enclave.Client, logger *logging.Logger) error {
 	_, err := client.GetArtifactByTag(context.Background(), benchmarkNamespace, benchmarkName, benchmarkTag)
 	if err == nil {
-		return
+		return nil
 	}
 
-	f, err := os.Open("../artifact/benchmark.wasm")
+	if !errors.Is(err, enclave.ErrNotFound) {
+		logger.Error("Failed to check existing benchmark artifact", logging.Fields{
+			"namespace": benchmarkNamespace,
+			"name":      benchmarkName,
+			"error":     err.Error(),
+		})
+		return err
+	}
+
+	f, err := os.Open("artifact/benchmark.wasm")
 	if err != nil {
-		return
+		return err
 	}
 	defer f.Close()
 
@@ -42,7 +59,7 @@ func PrepareSuite(client enclave.Client, logger *logging.Logger) {
 			"name":      benchmarkName,
 			"error":     err.Error(),
 		})
-		return
+		return err
 	}
 
 	patchReq := enclave.PatchArtifactRequest{
@@ -56,35 +73,34 @@ func PrepareSuite(client enclave.Client, logger *logging.Logger) {
 			"name":      benchmarkName,
 			"error":     err.Error(),
 		})
+		return err
 	}
+
+	return nil
 }
 
-func CreateTask(id string, client enclave.Client, logger *logging.Logger, receiverAddr string) error {
-	req := defaultTask
-	callback := "/benchmarks/started/?request=" + id
-	req.Params = []any{"http://localhost" + receiverAddr + callback}
-	task, err := client.CreateTask(context.Background(), req)
-	timestamp := time.Now()
+func CreateTask(client *enclave.Client, logger *logging.Logger, receiverAddr string, refTime time.Time) error {
+	id := uuid.NewString()
+	req := defaultTaskDocker
+	req.Env = []enclave.EnvironmentVariable{
+		{
+			Key:   "MEASUREMENT_ID",
+			Value: id,
+		},
+		{
+			Key:   "MEASUREMENT_SERVER",
+			Value: "http://" + receiverAddr,
+		},
+	}
+
+	_, err := client.CreateTask(context.Background(), req)
 	if err != nil {
 		return err
 	}
 	logger.Info("benchmark event", logging.Fields{
 		"event":     "published",
 		"id":        id,
-		"timestamp": time.Now().UTC().Format(time.RFC3339Nano),
+		"timestamp": time.Now().Sub(refTime).Nanoseconds(),
 	})
-	completed := false
-	for !completed && time.Since(timestamp) < 30*time.Second {
-		currentTask, pollErr := client.GetTask(context.Background(), task.ID)
-		if pollErr != nil {
-			logger.Error("Failed to get task", logging.Fields{"task_id": task.ID, "error": pollErr.Error()})
-			return pollErr
-		}
-		if currentTask.Status.State == "completed" {
-			completed = true
-		} else {
-			time.Sleep(100 * time.Millisecond)
-		}
-	}
 	return nil
 }

@@ -4,19 +4,17 @@ import (
 	"benchmark/logging"
 	"benchmark/task"
 	"log"
-	"time"
 
 	"github.com/EnclaveRunner/sdk-go/enclave"
-	"github.com/google/uuid"
 )
 
 var (
 	apiURL       = "http://localhost:8080"
 	username     = "enclave"
 	password     = "enclave"
-	sampleSize   = 10000
+	sampleSize   = 1000
 	idleTime     = 0.5 // seconds
-	receiverAddr = ":8083"
+	receiverAddr = "localhost:8083"
 )
 
 func main() {
@@ -27,9 +25,6 @@ func main() {
 	}
 	defer logger.Close()
 
-	// start receiver HTTP server
-	task.StartServer(receiverAddr, logger)
-
 	// create enclave client
 	client, err := enclave.NewClient(apiURL, username, password)
 	if err != nil {
@@ -37,18 +32,13 @@ func main() {
 	}
 
 	// prepare suite (upload artifact if not exists)
-	task.PrepareSuite(*client, logger)
-
-	for i := 0; i < sampleSize; i++ {
-		id := uuid.New().String()
-		if err := task.CreateTask(id, *client, logger, receiverAddr); err != nil {
-			logger.Error("CreateTask failed", logging.Fields{"task_id": id, "error": err.Error()})
-			// continue publishing other tasks even if one fails
-			continue
-		}
-
-		// idle between requests
-		time.Sleep(time.Duration(idleTime) * time.Second)
+	err = task.PrepareSuite(*client, logger)
+	if err != nil {
+		panic(err)
 	}
 
+	// start receiver HTTP server
+	task.StartMeasuring(sampleSize, receiverAddr, logger, client)
+
+	select {}
 }
