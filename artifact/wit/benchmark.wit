@@ -1,0 +1,12 @@
+package enclave:benchmark;
+
+world benchmark {
+    include wasi:cli/imports@0.2.6;
+    include wasi:http/proxy@0.2.0;
+
+    export test-suite;
+}
+
+interface test-suite {
+    startuptime: func(receiverserver: string) -> tuple<string, string>;
+}

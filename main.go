@@ -14,8 +14,8 @@ var (
 	apiURL       = "http://localhost:8080"
 	username     = "enclave"
 	password     = "enclave"
-	sampleSize   = 100
-	idleTime     = 5
+	sampleSize   = 10000
+	idleTime     = 0.5 // seconds
 	receiverAddr = ":8083"
 )
 
@@ -46,6 +46,7 @@ func main() {
 			// continue publishing other tasks even if one fails
 			continue
 		}
+
 		// idle between requests
 		time.Sleep(time.Duration(idleTime) * time.Second)
 	}

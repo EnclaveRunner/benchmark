@@ -24,31 +24,13 @@ var defaultTask = enclave.CreateTaskRequest{
 }
 
 func PrepareSuite(client enclave.Client, logger *logging.Logger) {
-	logger.Info("Preparing benchmark suite", logging.Fields{
-		"namespace": benchmarkNamespace,
-		"name":      benchmarkName,
-	})
-
 	_, err := client.GetArtifactByTag(context.Background(), benchmarkNamespace, benchmarkName, benchmarkTag)
 	if err == nil {
-		logger.Info("Benchmark artifact already exists", logging.Fields{
-			"namespace": benchmarkNamespace,
-			"name":      benchmarkName,
-		})
 		return
 	}
 
-	logger.Info("Benchmark artifact not found, uploading from local file", logging.Fields{
-		"path":  "./benchmark.wasm",
-		"error": err.Error(),
-	})
-
 	f, err := os.Open("./benchmark.wasm")
 	if err != nil {
-		logger.Error("Failed to open benchmark artifact file", logging.Fields{
-			"path":  "./benchmark.wasm",
-			"error": err.Error(),
-		})
 		return
 	}
 	defer f.Close()
@@ -62,11 +44,6 @@ func PrepareSuite(client enclave.Client, logger *logging.Logger) {
 		})
 		return
 	}
-
-	logger.Info("Benchmark artifact uploaded", logging.Fields{
-		"namespace": benchmarkNamespace,
-		"name":      benchmarkName,
-	})
 
 	patchReq := enclave.PatchArtifactRequest{
 		Tags: []string{"benchmark"},
@@ -86,9 +63,25 @@ func CreateTask(id string, client enclave.Client, logger *logging.Logger, receiv
 	req := defaultTask
 	callback := "/benchmarks/?request=" + id
 	req.Params = []any{"http://localhost" + receiverAddr + callback}
-	_, err := client.CreateTask(context.Background(), req)
+	task, err := client.CreateTask(context.Background(), req)
 	timestamp := time.Now()
-	logger.Info("Task published", logging.Fields{"task_id": id, "timestamp": timestamp, "callback": callback})
+	if err != nil {
+		return err
+	}
+	logger.Info("Task published", logging.Fields{"request": id, "callback": callback})
 	CreateListener(id, timestamp, logger)
-	return err
+	completed := false
+	for !completed && time.Since(timestamp) < 30*time.Second {
+		currentTask, pollErr := client.GetTask(context.Background(), task.ID)
+		if pollErr != nil {
+			logger.Error("Failed to get task", logging.Fields{"task_id": task.ID, "error": pollErr.Error()})
+			return pollErr
+		}
+		if currentTask.Status.State == "completed" {
+			completed = true
+		} else {
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+	return nil
 }

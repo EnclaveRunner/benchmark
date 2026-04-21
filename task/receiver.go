@@ -3,18 +3,21 @@ package task
 import (
 	"benchmark/logging"
 	"net/http"
+	"sync"
 	"time"
 )
 
 var (
+	listenersMu sync.RWMutex
 	// map requestID to creation timestamp
 	listeners = make(map[string]time.Time)
 )
 
 // CreateListener registers a listener timestamp for a request ID.
 func CreateListener(requestID string, timestamp time.Time, logger *logging.Logger) {
+	listenersMu.Lock()
 	listeners[requestID] = timestamp
-	logger.Info("listener registered", logging.Fields{"request": requestID, "timestamp": timestamp.Format(time.RFC3339)})
+	listenersMu.Unlock()
 }
 
 // StartServer starts an HTTP server that handles /benchmarks/?request=<id>
@@ -28,9 +31,10 @@ func StartServer(addr string, logger *logging.Logger) {
 		}
 
 		now := time.Now()
-		logger.Info("benchmark endpoint called", logging.Fields{"request": reqID, "remote": r.RemoteAddr})
-
-		if prev, ok := listeners[reqID]; ok {
+		listenersMu.RLock()
+		prev, ok := listeners[reqID]
+		listenersMu.RUnlock()
+		if ok {
 			diff := now.Sub(prev)
 			logger.Info("listener hit, reporting diff", logging.Fields{"request": reqID, "diff_ms": diff.Milliseconds()})
 		} else {
@@ -44,7 +48,6 @@ func StartServer(addr string, logger *logging.Logger) {
 	})
 
 	go func() {
-		logger.Info("starting benchmark HTTP server", logging.Fields{"addr": addr})
 		if err := http.ListenAndServe(addr, nil); err != nil {
 			logger.Error("http server exited", logging.Fields{"error": err.Error()})
 		}
