@@ -61,15 +61,18 @@ func PrepareSuite(client enclave.Client, logger *logging.Logger) {
 
 func CreateTask(id string, client enclave.Client, logger *logging.Logger, receiverAddr string) error {
 	req := defaultTask
-	callback := "/benchmarks/?request=" + id
+	callback := "/benchmarks/started/?request=" + id
 	req.Params = []any{"http://localhost" + receiverAddr + callback}
 	task, err := client.CreateTask(context.Background(), req)
 	timestamp := time.Now()
 	if err != nil {
 		return err
 	}
-	logger.Info("Task published", logging.Fields{"request": id, "callback": callback})
-	CreateListener(id, timestamp, logger)
+	logger.Info("benchmark event", logging.Fields{
+		"event":     "published",
+		"id":        id,
+		"timestamp": time.Now().UTC().Format(time.RFC3339Nano),
+	})
 	completed := false
 	for !completed && time.Since(timestamp) < 30*time.Second {
 		currentTask, pollErr := client.GetTask(context.Background(), task.ID)
